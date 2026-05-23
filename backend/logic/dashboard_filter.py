@@ -17,7 +17,7 @@ def get_dashboard_data(checkin):
     organizados y filtrados, listos para el frontend.
 
     Args:
-        checkin: Objeto DailyCheckIn del día actual.
+        checkin: Objeto DailyCheckIn del día actual..
 
     Returns:
         dict con estructura completa para renderizar el Dashboard.
