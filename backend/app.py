@@ -7,12 +7,14 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 import os
+import logging
 
 db = SQLAlchemy()
 
+
 def create_app(config_name="development"):
     app = Flask(__name__)
-    CORS(app)  # Permite peticiones desde el frontend
+    CORS(app)
 
     # ─── Configuración ─────────────────────────────────────────────────────────
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
@@ -24,29 +26,40 @@ def create_app(config_name="development"):
     # ─── Inicializar extensiones ────────────────────────────────────────────────
     db.init_app(app)
 
-    # ─── Registrar Blueprints (Rutas) ───────────────────────────────────────────
-    from backend.routes.tasks    import tasks_bp
-    from backend.routes.checkin  import checkin_bp
+    # ─── Rutas básicas ──────────────────────────────────────────────────────────
+    @app.route("/")
+    def index():
+        return "Bienvenida a MOSS 🚀"
 
-    app.register_blueprint(tasks_bp,   url_prefix="/api/tasks")
+    # ─── Registrar Blueprints (Rutas) ───────────────────────────────────────────
+    # Importar blueprints dentro de create_app evita problemas de import circular
+    from backend.routes.tasks import tasks_bp
+    from backend.routes.checkin import checkin_bp
+
+    app.register_blueprint(tasks_bp, url_prefix="/api/tasks")
     app.register_blueprint(checkin_bp, url_prefix="/api/checkin")
 
-    # ─── Crear tablas en primera ejecución ─────────────────────────────────────
+    # ─── Crear tablas y seed en primera ejecución ───────────────────────────────
     with app.app_context():
         db.create_all()
-        _seed_mock_data()  # Datos mock para pilares y metas
+        try:
+            _seed_mock_data()
+        except Exception as e:
+            # Loguea el error pero no rompe el arranque del servidor
+            logging.exception("Error al insertar datos mock: %s", e)
 
     return app
 
 
 def _seed_mock_data():
     """
-    Inserta datos de prueba para Pilares y Metas (módulos futuros).
-    Permite que los selectores del frontend funcionen desde el inicio.
+    Inserta datos de prueba para Pilares y Metas.
+    Importar los modelos aquí evita import circular al inicializar db.
     """
     from backend.models.mock_data import MockPilar, MockMeta
 
-    if MockPilar.query.count() == 0:
+    # Asegurarse de que los modelos tienen el atributo query antes de usarlo
+    if hasattr(MockPilar, "query") and MockPilar.query.count() == 0:
         pilares = [
             "Espiritualidad", "Familia y Amigos", "Matrimonio",
             "Maternidad", "Finanzas", "Estudios",
@@ -56,7 +69,7 @@ def _seed_mock_data():
         for nombre in pilares:
             db.session.add(MockPilar(nombre=nombre))
 
-    if MockMeta.query.count() == 0:
+    if hasattr(MockMeta, "query") and MockMeta.query.count() == 0:
         metas_mock = [
             "Meta Q1: Salud y Bienestar",
             "Meta Q1: Crecimiento Negocio",
