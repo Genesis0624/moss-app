@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MOSS — My Operating System</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ── Sidebar ─────────────────────────────────────────── -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">M</div>
+
+    <button class="nav-btn active" data-view="dashboard"
+            onclick="UI.switchView('dashboard')" title="Dashboard">
+      <i class="ti ti-layout-dashboard" aria-hidden="true"></i>
+    </button>
+
+    <button class="nav-btn" data-view="tasks"
+            onclick="UI.switchView('tasks'); TaskManager.load()" title="Gestor de Tareas">
+      <i class="ti ti-checklist" aria-hidden="true"></i>
+    </button>
+
+    <div class="nav-divider"></div>
+
+    <button class="nav-btn" title="Hábitos (próximamente)">
+      <i class="ti ti-repeat" aria-hidden="true"></i>
+    </button>
+
+    <button class="nav-btn" title="Metas 12 Semanas (próximamente)">
+      <i class="ti ti-target" aria-hidden="true"></i>
+    </button>
+
+    <button class="nav-btn" title="Rueda de la Vida (próximamente)">
+      <i class="ti ti-chart-radar" aria-hidden="true"></i>
+    </button>
+
+    <div class="nav-spacer"></div>
+
+    <button class="nav-btn" title="Estadísticas (próximamente)">
+      <i class="ti ti-chart-bar" aria-hidden="true"></i>
+    </button>
+
+    <button class="nav-btn" title="Ajustes">
+      <i class="ti ti-settings" aria-hidden="true"></i>
+    </button>
+  </nav>
+
+  <!-- ── Main Content ─────────────────────────────────────── -->
+  <div class="main-content">
+
+    <!-- ════════════════════════════════════════════════════
+         VISTA 1: DASHBOARD DIARIO (Frontstage)
+    ════════════════════════════════════════════════════════ -->
+    <div id="dashboard-view" class="dashboard-view">
+
+      <!-- Top Bar -->
+      <div class="top-bar">
+        <div class="greeting-block">
+          <h1 id="greeting-text">Cargando...</h1>
+          <div class="date-line" id="date-line"></div>
+        </div>
+        <div class="checkin-pill" onclick="CheckinModal.show()" title="Editar check-in">
+          <div class="mood-dot" id="mood-dot"></div>
+          <span id="checkin-summary">Sin check-in hoy</span>
+        </div>
+      </div>
+
+      <!-- View Toggle (Hoy / Semana) -->
+      <div class="view-toggle">
+        <button class="toggle-btn active" id="btn-day">Hoy</button>
+        <button class="toggle-btn" id="btn-week" title="Próximamente">Semana</button>
+      </div>
+
+      <!-- Mode Banner (rendimiento / protección) -->
+      <div id="mode-banner" class="mode-banner" style="display:none">
+        <span class="banner-icon"></span>
+        <span class="banner-text"></span>
+        <button class="banner-cta"></button>
+      </div>
+
+      <!-- Contenido del dashboard (se inyecta dinámicamente) -->
+      <div id="dashboard-content">
+        <div class="loading-state">
+          <div class="loading-spinner"></div>
+          <span>Iniciando MOSS...</span>
+        </div>
+      </div>
+
+      <!-- Los 3 bloques de tiempo -->
+      <div class="blocks-grid" id="blocks-grid" style="display:none">
+
+        <!-- BLOQUE A: Vencidas -->
+        <div class="block-section" id="overdue-section">
+          <div class="block-header">
+            <div class="block-dot red"></div>
+            <span class="block-label">Vencidas</span>
+            <span class="block-count" id="overdue-count"></span>
+            <button class="collapse-btn" id="overdue-toggle"
+                    onclick="Dashboard.toggleBlock('overdue')" aria-label="Colapsar vencidas">
+              <i class="ti ti-chevron-down" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="block-body" id="overdue-body"></div>
+        </div>
+
+        <!-- BLOQUE B: Hoy -->
+        <div class="block-section">
+          <div class="block-header">
+            <div class="block-dot amber"></div>
+            <span class="block-label">Hoy</span>
+            <span class="block-count" id="today-count"></span>
+          </div>
+          <div id="today-body"></div>
+        </div>
+
+        <!-- BLOQUE C: Mañana (solo lectura) -->
+        <div class="block-section" id="tomorrow-section">
+          <div class="block-header">
+            <div class="block-dot blue"></div>
+            <span class="block-label">Mañana · solo lectura</span>
+            <span class="block-count" id="tomorrow-count"></span>
+            <button class="collapse-btn" id="tomorrow-toggle"
+                    onclick="Dashboard.toggleBlock('tomorrow')" aria-label="Colapsar mañana">
+              <i class="ti ti-chevron-down" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="block-body" id="tomorrow-body"></div>
+        </div>
+
+      </div><!-- end blocks-grid -->
+    </div><!-- end dashboard-view -->
+
+
+    <!-- ════════════════════════════════════════════════════
+         VISTA 2: GESTOR DE TAREAS (Backstage)
+    ════════════════════════════════════════════════════════ -->
+    <div id="tasks-view" class="task-manager-view">
+
+      <div class="top-bar">
+        <h1 class="section-title">Gestor de Tareas</h1>
+        <div class="checkin-pill" onclick="CheckinModal.show()" title="Editar check-in">
+          <div class="mood-dot" id="mood-dot-tasks"></div>
+          <span id="checkin-summary-tasks">Sin check-in</span>
+        </div>
+      </div>
+
+      <!-- Tabs: Inbox / Planificadas / Completadas -->
+      <div class="view-toggle">
+        <button class="toggle-btn active" id="tab-inbox"
+                onclick="setTaskTab('inbox')">
+          Inbox <span id="inbox-count" style="opacity:0.6"></span>
+        </button>
+        <button class="toggle-btn" id="tab-planned"
+                onclick="setTaskTab('planned')">Planificadas</button>
+        <button class="toggle-btn" id="tab-completed"
+                onclick="setTaskTab('completed')">Completadas</button>
+      </div>
+
+      <!-- Lista del Inbox -->
+      <div id="inbox-list">
+        <div class="loading-state">
+          <div class="loading-spinner"></div>
+          <span>Cargando inbox...</span>
+        </div>
+      </div>
+
+      <!-- Lista de Planificadas (se carga al cambiar tab) -->
+      <div id="planned-list" style="display:none"></div>
+
+      <!-- Lista de Completadas -->
+      <div id="completed-list" style="display:none"></div>
+
+    </div><!-- end tasks-view -->
+
+  </div><!-- end main-content -->
+</div><!-- end app-shell -->
+
+
+<!-- ── FAB — Captura rápida ─────────────────────────────────── -->
+<button class="fab" id="fab-btn" onclick="FAB.capture()" title="Captura rápida">
+  <i class="ti ti-plus" aria-hidden="true"></i>
+</button>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     MODAL: CHECK-IN DIARIO (Gatekeeper)
+════════════════════════════════════════════════════════════════ -->
+<div id="checkin-modal" class="checkin-modal-bg" style="display:none"
+     role="dialog" aria-modal="true" aria-labelledby="checkin-title">
+
+  <div class="checkin-modal">
+    <h2 id="checkin-title">¿Cómo amaneciste hoy?</h2>
+    <p class="sub">Tu respuesta ajusta toda tu agenda para proteger tu energía.</p>
+
+    <!-- Mood -->
+    <div class="checkin-section-label">Estado de ánimo</div>
+    <div class="mood-grid">
+      <div class="mood-option" data-mood="eufórica"  onclick="CheckinModal.selectMood(this)">
+        <div class="mood-icon">✨</div>Eufórica
+      </div>
+      <div class="mood-option" data-mood="feliz"     onclick="CheckinModal.selectMood(this)">
+        <div class="mood-icon">😊</div>Feliz
+      </div>
+      <div class="mood-option" data-mood="poderosa"  onclick="CheckinModal.selectMood(this)">
+        <div class="mood-icon">💪</div>Poderosa
+      </div>
+      <div class="mood-option" data-mood="bien"      onclick="CheckinModal.selectMood(this)">
+        <div class="mood-icon">🌿</div>Bien
+      </div>
+      <div class="mood-option" data-mood="apagada"   onclick="CheckinModal.selectMood(this)">
+        <div class="mood-icon">🌧</div>Apagada
+      </div>
+      <div class="mood-option" data-mood="cansada"   onclick="CheckinModal.selectMood(this)">
+        <div class="mood-icon">😴</div>Cansada
+      </div>
+      <div class="mood-option" data-mood="estresada" onclick="CheckinModal.selectMood(this)">
+        <div class="mood-icon">😤</div>Estresada
+      </div>
+      <div class="mood-option" data-mood="enferma"   onclick="CheckinModal.selectMood(this)">
+        <div class="mood-icon">🤒</div>Enferma
+      </div>
+    </div>
+
+    <!-- Energía -->
+    <div class="checkin-section-label">Energía física</div>
+    <div class="energy-row">
+      <div class="energy-opt" data-energy="Alta"  onclick="CheckinModal.selectEnergy(this)">
+        <span class="energy-icon">⚡</span>Alta
+      </div>
+      <div class="energy-opt" data-energy="Media" onclick="CheckinModal.selectEnergy(this)">
+        <span class="energy-icon">🔋</span>Media
+      </div>
+      <div class="energy-opt" data-energy="Baja"  onclick="CheckinModal.selectEnergy(this)">
+        <span class="energy-icon">🪫</span>Baja
+      </div>
+    </div>
+
+    <button class="confirm-btn" id="checkin-confirm-btn"
+            onclick="CheckinModal.confirm()" disabled>
+      Selecciona tu estado y energía
+    </button>
+  </div>
+</div>
+
+
+<!-- ── Scripts (orden importa) ──────────────────────────────── -->
+<script src="js/api.js"></script>
+<script src="js/state.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/components.js"></script>
+
+<script>
+  /**
+   * MOSS — App Init
+   * Punto de entrada: verifica check-in y arranca la app.
+   */
+  async function initApp() {
+    try {
+      const res = await API.checkin.getToday();
+
+      if (!res.exists) {
+        // No hay check-in hoy → mostrar modal gatekeeper
+        CheckinModal.show();
+      } else {
+        // Ya hay check-in → cargar dashboard directamente
+        AppState.setCheckin(res.checkin);
+        updateCheckinUI(res.checkin);
+        await Dashboard.load();
+        showBlocks();
+      }
+    } catch (err) {
+      document.getElementById("dashboard-content").innerHTML = `
+        <div class="error-state">
+          <p>⚠️ No se pudo conectar con el servidor.</p>
+          <p style="font-size:12px;margin-top:6px;opacity:0.6">
+            Asegúrate de que Flask esté corriendo en http://127.0.0.1:5000
+          </p>
+          <button class="btn-ghost" onclick="initApp()" style="margin-top:12px">
+            Reintentar
+          </button>
+        </div>`;
+    }
+  }
+
+  // Se llama después de confirmar el check-in desde el modal
+  // (Dashboard.load() ya lo maneja internamente, pero necesitamos
+  //  mostrar los bloques y actualizar la UI del pill)
+  AppState.on("change:checkin", (checkin) => {
+    if (checkin) {
+      updateCheckinUI(checkin);
+      showBlocks();
+    }
+  });
+
+  function updateCheckinUI(checkin) {
+    const moodEmoji = {
+      "eufórica":"✨","feliz":"😊","poderosa":"💪","bien":"🌿",
+      "apagada":"🌧","cansada":"😴","estresada":"😤","enferma":"🤒"
+    };
+    const summary = `${moodEmoji[checkin.mood] || ""} <strong>${capitalize(checkin.mood)}</strong> · ${checkin.energia}`;
+
+    // Actualizar ambos pills (dashboard y task manager)
+    document.getElementById("checkin-summary").innerHTML       = summary;
+    document.getElementById("checkin-summary-tasks").innerHTML = summary;
+
+    const modeClass = checkin.dashboard_mode === "rendimiento" ? "rendimiento"
+                    : checkin.dashboard_mode === "proteccion"  ? "protection" : "";
+    document.getElementById("mood-dot").className       = "mood-dot " + modeClass;
+    document.getElementById("mood-dot-tasks").className = "mood-dot " + modeClass;
+  }
+
+  function showBlocks() {
+    document.getElementById("dashboard-content").style.display = "none";
+    document.getElementById("blocks-grid").style.display       = "flex";
+  }
+
+  // Tab switcher del Task Manager
+  async function setTaskTab(tab) {
+    ["inbox","planned","completed"].forEach(t => {
+      document.getElementById(t + "-list").style.display   = t === tab ? "block" : "none";
+      document.getElementById("tab-" + t)?.classList.toggle("active", t === tab);
+    });
+
+    if (tab === "planned") {
+      try {
+        UI.showLoading("planned-list");
+        const res = await API.tasks.getAll({ estado: "planificada" });
+        renderPlannedList(res.tasks);
+      } catch (err) {
+        UI.showError("planned-list", "No se pudieron cargar las tareas planificadas.");
+      }
+    }
+
+    if (tab === "completed") {
+      try {
+        UI.showLoading("completed-list");
+        const res = await API.tasks.getAll({ estado: "completada" });
+        renderCompletedList(res.tasks);
+      } catch (err) {
+        UI.showError("completed-list", "No se pudieron cargar las tareas completadas.");
+      }
+    }
+  }
+
+  function renderPlannedList(tasks) {
+    const el = document.getElementById("planned-list");
+    if (!tasks.length) {
+      el.innerHTML = '<div class="empty-state">No hay tareas planificadas aún.</div>';
+      return;
+    }
+    el.innerHTML = tasks.map(t => `
+      <div class="inbox-row">
+        <div class="inbox-row-icon">◈</div>
+        <div class="inbox-row-info">
+          <span class="inbox-row-title">${t.titulo}</span>
+          <span class="inbox-row-date">
+            ${t.fecha_planificada || "Sin fecha"} ·
+            ${t.pilar_nombre || t.meta_nombre || "Sin vincular"} ·
+            ${t.nivel_energia_requerido || "–"}
+          </span>
+        </div>
+        <div class="task-actions">
+          <button class="action-btn complete" title="Completar"
+                  onclick="quickComplete('${t.id}', this)">✓</button>
+          <button class="action-btn delete" title="Eliminar"
+                  onclick="quickDelete('${t.id}', this)">×</button>
+        </div>
+      </div>`).join("");
+  }
+
+  function renderCompletedList(tasks) {
+    const el = document.getElementById("completed-list");
+    if (!tasks.length) {
+      el.innerHTML = '<div class="empty-state">Aún no has completado tareas. ¡Tú puedes! 💪</div>';
+      return;
+    }
+    el.innerHTML = tasks.map(t => `
+      <div class="inbox-row" style="opacity:0.6">
+        <div class="inbox-row-icon" style="color:var(--moss-accent)">✓</div>
+        <div class="inbox-row-info">
+          <span class="inbox-row-title" style="text-decoration:line-through">${t.titulo}</span>
+          <span class="inbox-row-date">
+            Completada: ${t.fecha_completado ? new Date(t.fecha_completado).toLocaleDateString("es-ES") : "–"}
+          </span>
+        </div>
+      </div>`).join("");
+  }
+
+  async function quickComplete(id, btn) {
+    btn.disabled = true;
+    try {
+      await API.tasks.complete(id);
+      btn.closest(".inbox-row").remove();
+      UI.toast("Tarea completada ✓", "success");
+    } catch (err) {
+      UI.toast("Error: " + err.message, "error");
+      btn.disabled = false;
+    }
+  }
+
+  async function quickDelete(id, btn) {
+    if (!confirm("¿Eliminar esta tarea?")) return;
+    btn.disabled = true;
+    try {
+      await API.tasks.delete(id);
+      btn.closest(".inbox-row").remove();
+      UI.toast("Tarea eliminada.", "info");
+    } catch (err) {
+      UI.toast("Error: " + err.message, "error");
+      btn.disabled = false;
+    }
+  }
+
+  function capitalize(str) {
+    return str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
+  }
+
+  // ── Arrancar ──────────────────────────────────────────────
+  document.addEventListener("DOMContentLoaded", initApp);
+</script>
+
+</body>
+</html>
