@@ -36,23 +36,30 @@
 
 /* ── Reset ─────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* FIX SCROLL: html y body ocupan exactamente el viewport, sin overflow */
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
 html { font-size: 14px; -webkit-font-smoothing: antialiased; }
 body {
   background: var(--moss-bg);
   color: var(--moss-text);
   font-family: var(--font-body);
-  min-height: 100vh;
-  overflow-x: hidden;
 }
 button { font-family: var(--font-body); cursor: pointer; }
 input, select { font-family: var(--font-body); }
 a { color: inherit; text-decoration: none; }
 
 /* ── App Shell ─────────────────────────────────────────────── */
+/* FIX SCROLL: el shell ocupa exactamente el 100% de la pantalla */
 .app-shell {
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
-  min-height: 100vh;
+  height: 100vh;         /* altura fija al viewport */
+  overflow: hidden;      /* evita doble scrollbar */
 }
 
 /* ── Sidebar ───────────────────────────────────────────────── */
@@ -64,11 +71,16 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   padding: 16px 0;
   gap: 6px;
+  height: 100vh;          /* altura fija */
+  overflow-y: auto;       /* FIX SCROLL: scroll si hay muchos botones */
+  overflow-x: hidden;
   position: sticky;
   top: 0;
-  height: 100vh;
   z-index: 10;
+  /* Ocultar scrollbar visualmente pero mantener funcional */
+  scrollbar-width: none;
 }
+.sidebar::-webkit-scrollbar { display: none; }
 
 .sidebar-logo {
   font-family: var(--font-display);
@@ -99,9 +111,12 @@ a { color: inherit; text-decoration: none; }
 .nav-spacer { flex: 1; }
 
 /* ── Main content ──────────────────────────────────────────── */
+/* FIX SCROLL: el área de contenido es la que hace scroll, no el body */
 .main-content {
   padding: 28px 32px;
-  overflow-y: auto;
+  height: 100vh;          /* ocupa todo el alto */
+  overflow-y: auto;       /* scroll vertical aquí */
+  overflow-x: hidden;
   max-width: 860px;
 }
 
@@ -544,6 +559,9 @@ a { color: inherit; text-decoration: none; }
   padding: 14px 16px;
   display: flex; align-items: center; justify-content: space-between;
   border-bottom: 0.5px solid var(--moss-border);
+  position: sticky; top: 0;
+  background: var(--moss-surface);
+  z-index: 2;
 }
 .processor-title { font-size: 13px; font-weight: 500; }
 .processor-close {
@@ -553,7 +571,13 @@ a { color: inherit; text-decoration: none; }
 }
 .processor-close:hover { color: var(--moss-text); }
 
-.processor-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+/* FIX SCROLL: el body del procesador tiene scroll propio */
+.processor-body {
+  padding: 16px;
+  display: flex; flex-direction: column; gap: 14px;
+  max-height: 60vh;       /* máximo 60% de la pantalla */
+  overflow-y: auto;       /* scroll interno si el formulario es largo */
+}
 
 .processor-step {}
 .step-label {
