@@ -20,15 +20,15 @@ class TaskEstado(PyEnum):
     INBOX       = "inbox"
     PLANIFICADA = "planificada"
     COMPLETADA  = "completada"
-    CANCELADA   = "cancelada"   # Para eventos cancelados por energía baja
-    ELIMINADA   = "eliminada"   # Soft delete
+    CANCELADA   = "cancelada"
+    ELIMINADA   = "eliminada"
 
 class TaskTipo(PyEnum):
     COTIDIANA   = "Cotidiana"
     ESTRATEGICA = "Estratégica"
 
 class TaskDuracion(PyEnum):
-    CORTA = "<3min"   # Dispara regla "¡Hazlo ahora!"
+    CORTA = "<3min"
     LARGA = ">3min"
 
 class TaskContexto(PyEnum):
@@ -65,62 +65,48 @@ class MotivoCancelacion(PyEnum):
 class Task(db.Model):
     __tablename__ = "tasks"
 
-    # ── Identidad ──────────────────────────────────────────────────────────────
     id     = db.Column(db.String(36), primary_key=True,
                        default=lambda: str(uuid.uuid4()))
     titulo = db.Column(db.String(500), nullable=False)
 
-    # ── Flujo y Estado ─────────────────────────────────────────────────────────
     estado             = db.Column(db.Enum(TaskEstado),
                                    default=TaskEstado.INBOX, nullable=False)
     fecha_creacion     = db.Column(db.DateTime, default=datetime.utcnow)
     fecha_planificada  = db.Column(db.Date, nullable=True)
     fecha_completado   = db.Column(db.DateTime, nullable=True)
 
-    # ── Clasificación ──────────────────────────────────────────────────────────
     tipo                    = db.Column(db.Enum(TaskTipo), nullable=True)
     duracion                = db.Column(db.Enum(TaskDuracion), nullable=True)
     contexto                = db.Column(db.Enum(TaskContexto), nullable=True)
     frecuencia              = db.Column(db.Enum(TaskFrecuencia),
                                         default=TaskFrecuencia.UNICA)
     recurrence_rule         = db.Column(db.String(200), nullable=True)
-    # Formato RRULE: "FREQ=WEEKLY;BYDAY=MO,WE,FR" etc.
-    # Las instancias futuras se calculan dinámicamente en lectura, no se almacenan.
 
     nivel_energia_requerido = db.Column(db.Enum(NivelEnergia), nullable=True)
     impacto_emocional       = db.Column(db.Enum(ImpactoEmocional), nullable=True)
-    # impacto_emocional: se pide opcionalmente al completar tareas recurrentes.
-    # Alimentará métricas de bienestar en el módulo de Análisis.
 
-    # ── Matriz Eisenhower ──────────────────────────────────────────────────────
     is_urgent    = db.Column(db.Boolean, default=False)
     is_important = db.Column(db.Boolean, default=False)
 
     @property
     def eisenhower_label(self):
-        """Calcula la etiqueta Eisenhower dinámicamente, sin guardarla en DB."""
         if self.is_urgent and self.is_important:
-            return "top"          # Hacer ahora
+            return "top"
         elif self.is_important and not self.is_urgent:
-            return "media"        # Planificar
+            return "media"
         elif self.is_urgent and not self.is_important:
-            return "delegar"      # Delegar
+            return "delegar"
         else:
-            return "mantenimiento" # Eliminar o hacer si hay tiempo
+            return "mantenimiento"
 
     @property
     def eisenhower_prioridad(self):
-        """Valor numérico para ordenar tareas en el Dashboard (menor = más urgente)."""
         orden = {"top": 1, "media": 2, "delegar": 3, "mantenimiento": 4}
         return orden.get(self.eisenhower_label, 4)
 
-    # ── Hard Landscape (GTD — Compromisos Inamovibles) ─────────────────────────
     es_evento_con_hora = db.Column(db.Boolean, default=False)
     hora_inicio        = db.Column(db.Time, nullable=True)
-    # REGLA DE NEGOCIO: hora_inicio es obligatorio si es_evento_con_hora == True
-    # REGLA DE NEGOCIO: eventos tienen INMUNIDAD al filtro de ocultamiento
 
-    # ── Tracking de Cancelaciones (para Análisis de Datos — Módulo Futuro) ─────
     fue_cancelado_por_energia  = db.Column(db.Boolean, default=False)
     fecha_cancelacion          = db.Column(db.DateTime, nullable=True)
     motivo_cancelacion         = db.Column(db.Enum(MotivoCancelacion),
@@ -130,29 +116,24 @@ class Task(db.Model):
         db.ForeignKey("daily_checkins.id"),
         nullable=True
     )
-    # Permite correlacionar: "¿Bajo qué estado emocional cancelo más eventos?"
 
-    # ── Relaciones FK — Módulos Futuros ────────────────────────────────────────
-    pilar_id = db.Column(db.String(36), db.ForeignKey("mock_pilares.id"),
+    # ── Relaciones FK ──────────────────────────────────────────────────────────
+    pilar_id = db.Column(db.String(36), db.ForeignKey("pilares.id"),
                          nullable=True)
-    meta_id  = db.Column(db.String(36), db.ForeignKey("mock_metas.id"),
+    meta_id  = db.Column(db.String(36), db.ForeignKey("metas.id"),
                          nullable=True)
-    # TODO Fase 2: pilar_id → FK real a tabla 'pilares' (Módulo Rueda de la Vida)
-    # TODO Fase 3: meta_id  → FK real a tabla 'metas'   (Módulo 12 Semanas)
 
     # ── Relaciones ORM ─────────────────────────────────────────────────────────
     checkin_cancelacion = db.relationship(
         "DailyCheckIn",
         foreign_keys=[checkin_cancelacion_id],
-        backref="cancelaciones"
+        back_populates="cancelaciones"
     )
-    pilar = db.relationship("MockPilar", foreign_keys=[pilar_id])
-    meta  = db.relationship("MockMeta",  foreign_keys=[meta_id])
+    pilar = db.relationship("Pilar", back_populates="tareas")
+    meta  = db.relationship("Meta", back_populates="tareas")
 
     # ── Métodos de Serialización ───────────────────────────────────────────────
-
     def to_dict(self):
-        """Serializa la tarea para el frontend."""
         return {
             "id":                        self.id,
             "titulo":                    self.titulo,
@@ -178,8 +159,9 @@ class Task(db.Model):
             "pilar_id":                  self.pilar_id,
             "pilar_nombre":              self.pilar.nombre if self.pilar else None,
             "meta_id":                   self.meta_id,
-            "meta_nombre":               self.meta.nombre if self.meta else None,
+            "meta_titulo":               self.meta.titulo if self.meta else None,
         }
 
     def __repr__(self):
         return f"<Task {self.id[:8]} | '{self.titulo[:30]}' | {self.estado.value}>"
+

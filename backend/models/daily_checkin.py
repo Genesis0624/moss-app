@@ -16,13 +16,10 @@ from backend.app import db
 # ─── Enums ────────────────────────────────────────────────────────────────────
 
 class MoodEnum(PyEnum):
-    # Grupo Alto Rendimiento → Dashboard modo "rendimiento"
     EUFORICA  = "eufórica"
     FELIZ     = "feliz"
     PODEROSA  = "poderosa"
-    # Neutro → Dashboard modo "normal"
     BIEN      = "bien"
-    # Grupo Protección → Dashboard modo "protección"
     APAGADA   = "apagada"
     CANSADA   = "cansada"
     ESTRESADA = "estresada"
@@ -47,6 +44,18 @@ class DailyCheckIn(db.Model):
     energia    = db.Column(db.Enum(EnergiaEnum), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # ---------------------------------------------------------
+    # Relación inversa para las tareas que referencian este checkin
+    # Empareja con: Task.checkin_cancelacion (back_populates="cancelaciones")
+    # ---------------------------------------------------------
+    cancelaciones = db.relationship(
+        "Task",
+        back_populates="checkin_cancelacion",
+        foreign_keys="Task.checkin_cancelacion_id",
+        lazy="dynamic",
+        cascade="all, delete-orphan"
+    )
+
     # ── Lógica de Modo ────────────────────────────────────────────────────────
 
     MOODS_RENDIMIENTO = {"eufórica", "feliz", "poderosa"}
@@ -54,24 +63,6 @@ class DailyCheckIn(db.Model):
 
     @property
     def dashboard_mode(self):
-        """
-        Calcula el modo del dashboard combinando mood + energía.
-
-        Matriz de decisión:
-        ┌──────────────┬──────┬────────┬──────┐
-        │              │ Alta │ Media  │ Baja │
-        ├──────────────┼──────┼────────┼──────┤
-        │ Eufórica     │  R   │   R    │  N   │
-        │ Feliz        │  R   │   R    │  N   │
-        │ Poderosa     │  R   │   R    │  N   │
-        │ Bien         │  N   │   N    │  N   │
-        │ Apagada      │  N   │   P    │  P   │
-        │ Cansada      │  N   │   P    │  P   │
-        │ Estresada    │  N   │   P    │  P   │
-        │ Enferma      │  N   │   P    │  P   │
-        └──────────────┴──────┴────────┴──────┘
-        R = rendimiento | P = protección | N = normal
-        """
         mood_val    = self.mood.value
         energia_val = self.energia.value
 
@@ -89,7 +80,6 @@ class DailyCheckIn(db.Model):
 
     @property
     def mensaje_bienvenida(self):
-        """Mensaje personalizado según el estado del día."""
         mensajes = {
             "rendimiento": "¡Estás en tu mejor momento hoy! 🚀 Tienes luz verde para atacar todo.",
             "normal":      "Un día tranquilo. Avanza a tu ritmo. 🌿",
